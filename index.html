@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizador de Tarefas Escolares</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text: #1f2937;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+        }
+
+        /* Formulário */
+        .form-group {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        input, select, button {
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 2rem;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Lista de Tarefas */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-left: 5px solid var(--primary);
+            border-radius: 8px;
+            background-color: #fafafa;
+            transition: transform 0.1s;
+        }
+
+        .task-card.concluida {
+            border-left-color: var(--success);
+            opacity: 0.7;
+        }
+
+        .task-card.concluida .task-title {
+            text-decoration: line-through;
+        }
+
+        .task-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .task-materia {
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: var(--primary);
+        }
+
+        .task-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .task-date {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+
+        /* Botões de Ação */
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-action {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .btn-check { background-color: var(--success); }
+        .btn-edit { background-color: var(--warning); }
+        .btn-delete { background-color: var(--danger); }
+
+        .empty-msg {
+            text-align: center;
+            color: #6b7280;
+            padding: 2rem;
+        }
+
+        @media (max-width: 600px) {
+            .form-group {
+                grid-template-columns: 1fr;
+            }
+            .task-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📚 Tarefas Escolares</h1>
+
+    <!-- Formulário (CREATE & UPDATE) -->
+    <form id="task-form">
+        <input type="hidden" id="task-id">
+        <div class="form-group">
+            <select id="materia" required>
+                <option value="" disabled selected>Matéria...</option>
+                <option value="Matemática">Matemática</option>
+                <option value="Português">Português</option>
+                <option value="História">História</option>
+                <option value="Geografia">Geografia</option>
+                <option value="Ciências">Ciências</option>
+                <option value="Inglês">Inglês</option>
+                <option value="Outra">Outra</option>
+            </select>
+            <input type="text" id="descricao" placeholder="Ex: Lista de exercícios pág. 42" required>
+            <input type="date" id="data-entrega" required>
+        </div>
+        <button type="submit" class="btn-submit" id="btn-submit">Adicionar Tarefa</button>
+    </form>
+
+    <!-- Lista onde as tarefas aparecem (READ) -->
+    <div id="task-list" class="task-list"></div>
+</div>
+
+<script>
+    // Estado da aplicação (carrega do localStorage ou inicia vazio)
+    let tarefas = JSON.parse(localStorage.getItem('tarefas_escolares')) || [];
+
+    // Elementos do DOM
+    const form = document.getElementById('task-form');
+    const inputId = document.getElementById('task-id');
+    const inputMateria = document.getElementById('materia');
+    const inputDescricao = document.getElementById('descricao');
+    const inputData = document.getElementById('data-entrega');
+    const btnSubmit = document.getElementById('btn-submit');
+    const taskList = document.getElementById('task-list');
+
+    // Salva no navegador
+    function salvarDados() {
+        localStorage.setItem('tarefas_escolares', JSON.stringify(tarefas));
+    }
+
+    // Formata data de YYYY-MM-DD para DD/MM/YYYY
+    function formatarData(dataISO) {
+        const [ano, mes, dia] = dataISO.split('-');
+        return `${dia}/${mes}/${ano}`;
+    }
+
+    // READ: Renderiza as tarefas na tela
+    function renderizarTarefas() {
+        taskList.innerHTML = '';
+
+        if (tarefas.length === 0) {
+            taskList.innerHTML = '<p class="empty-msg">Nenhuma tarefa cadastrada ainda. Aproveite o descanso!</p>';
+            return;
+        }
+
+        tarefas.forEach(tarefa => {
+            const card = document.createElement('div');
+            card.className = `task-card ${tarefa.concluida ? 'concluida' : ''}`;
+
+            card.innerHTML = `
+                <div class="task-info">
+                    <span class="task-materia">${tarefa.materia}</span>
+                    <span class="task-title">${tarefa.descricao}</span>
+                    <span class="task-date">Entrega: ${formatarData(tarefa.data)}</span>
+                </div>
+                <div class="task-actions">
+                    <button class="btn-action btn-check" onclick="alternarStatus(${tarefa.id})">
+                        ${tarefa.concluida ? 'Desfazer' : 'Concluir'}
+                    </button>
+                    <button class="btn-action btn-edit" onclick="prepararEdicao(${tarefa.id})">Editar</button>
+                    <button class="btn-action btn-delete" onclick="excluirTarefa(${tarefa.id})">Excluir</button>
+                </div>
+            `;
+
+            taskList.appendChild(card);
+        });
+    }
+
+    // CREATE & UPDATE: Salva nova tarefa ou atualiza existente
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const idEdicao = inputId.value;
+        const materia = inputMateria.value;
+        const descricao = inputDescricao.value.trim();
+        const data = inputData.value;
+
+        if (idEdicao) {
+            // UPDATE (Editar)
+            const index = tarefas.findIndex(t => t.id == idEdicao);
+            if (index !== -1) {
+                tarefas[index].materia = materia;
+                tarefas[index].descricao = descricao;
+                tarefas[index].data = data;
+            }
+            inputId.value = '';
+            btnSubmit.textContent = 'Adicionar Tarefa';
+            btnSubmit.style.backgroundColor = 'var(--primary)';
+        } else {
+            // CREATE (Criar)
+            const novaTarefa = {
+                id: Date.now(),
+                materia,
+                descricao,
+                data,
+                concluida: false
+            };
+            tarefas.push(novaTarefa);
+        }
+
+        salvarDados();
+        renderizarTarefas();
+        form.reset();
+    });
+
+    // UPDATE (Status de conclusão)
+    function alternarStatus(id) {
+        const tarefa = tarefas.find(t => t.id === id);
+        if (tarefa) {
+            tarefa.concluida = !tarefa.concluida;
+            salvarDados();
+            renderizarTarefas();
+        }
+    }
+
+    // Preenche o formulário para edição
+    function prepararEdicao(id) {
+        const tarefa = tarefas.find(t => t.id === id);
+        if (tarefa) {
+            inputId.value = tarefa.id;
+            inputMateria.value = tarefa.materia;
+            inputDescricao.value = tarefa.descricao;
+            inputData.value = tarefa.data;
+
+            btnSubmit.textContent = 'Salvar Alterações';
+            btnSubmit.style.backgroundColor = 'var(--warning)';
+            inputDescricao.focus();
+        }
+    }
+
+    // DELETE: Remove a tarefa
+    function excluirTarefa(id) {
+        if (confirm('Deseja realmente excluir esta tarefa?')) {
+            tarefas = tarefas.filter(t => t.id !== id);
+            salvarDados();
+            renderizarTarefas();
+        }
+    }
+
+    // Inicializa a tela ao carregar
+    renderizarTarefas();
+</script>
+
+</body>
+</html>
